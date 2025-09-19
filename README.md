@@ -116,11 +116,62 @@ curl -X POST http://localhost:8080/musics -H "Content-Type: application/json" -d
 
 - Se tudo estiver funcionando, o Producer publica uma mensagem na exchange/queue configurada e o Consumer (Node.js) poderá consumi-la.
 
-Observações sobre exchange/queue
-- Os nomes padrão estão em `application.properties`:
-  - `broker.exchange.name=example.fanout.exchange`
-  - `broker.queue.name=example.queue`
-- Para alterar, edite `src/main/resources/application.properties` ou passe `--broker.exchange.name=novo` na linha de comando.
+### Exemplo de retorno esperado (Producer)
+- Resposta HTTP do endpoint POST /musics (corpo retornado pela API):
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/plain;charset=UTF-8
+Content-Length: 17
+
+Mensagem enviada!
+```
+
+> Observação: o controller (`MusicController`) retorna uma string simples `"Mensagem enviada!"` quando a mensagem é enviada com sucesso.
+
+### Como verificar a mensagem no Consumer (Endpoint GET /messages)
+1. Após enviar a música ao Producer, verifique o Consumer (supondo que ele esteja rodando em http://localhost:3000):
+
+```cmd
+curl http://localhost:3000/messages
+```
+
+2. Resposta esperada do Consumer:
+
+- O `consumer.js` armazena cada mensagem recebida como uma string (que contém o JSON serializado). Assim, a resposta será um array de strings. Exemplo:
+
+```json
+[
+  "{\"id\":\"<uuid>\",\"name\":\"Shape of You\",\"artist\":\"Ed Sheeran\",\"album\":\"Divide\"}"
+]
+```
+
+3. Para ver a mensagem como um objeto JSON (parsing):
+- Usando Node.js (Windows cmd.exe):
+
+```cmd
+curl http://localhost:3000/messages > temp_messages.json
+node -e "const fs=require('fs'); const a=JSON.parse(fs.readFileSync('temp_messages.json')); console.log(JSON.parse(a[0]));"
+```
+
+- Em sistemas com `jq` instalado (Linux/macOS):
+
+```sh
+curl http://localhost:3000/messages | jq -r '.[0] | fromjson'
+```
+
+4. Verificando o arquivo salvo pelo Consumer:
+- O `consumer.js` também anexa cada mensagem em `received_messages.txt` (ou `messages.txt` conforme sua configuração). Verifique esse arquivo no diretório do Consumer para confirmar que a mensagem foi gravada:
+
+```cmd
+type received_messages.txt
+```
+
+5. Troubleshooting rápido:
+- Se o endpoint GET `/messages` retornar `[]` (array vazio):
+  - Confirme que o Consumer está rodando (procure a mensagem no console "Consumer rodando em http://localhost:3000" e "Aguardando mensagens...").
+  - Verifique se o RabbitMQ está acessível e as credenciais/host/queue coincidem com as usadas pelo Producer e pelo Consumer.
+  - Verifique a fila e mensagens pela interface do RabbitMQ (http://localhost:15672) para ver se as mensagens saíram do Producer e foram encaminhadas para a fila.
 
 ## Consumer (Node.js)
 
